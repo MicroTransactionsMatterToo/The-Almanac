@@ -1,5 +1,5 @@
 --[[
-    Copyright <YEAR> <COPYRIGHT HOLDER>
+    Copyright 2017 ENNIS MASSEY
 
     Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -146,7 +146,7 @@ end
 local mod = RegisterMod("The Almanac", 1)
 
 -- Logging Subsystem --
-local log = Queue.New(20)
+local log = Queue.New(10)
 
 --- Handles UI side of logging
 -- @param _mod placeholder for callback
@@ -196,6 +196,7 @@ function Almanac:UpdateValues()
             for itemID = 1,525 do
                 if Almanac.Player:GetCollectibleNum(itemID) > 0 then
                     Almanac.CurrentFrame["held_items"][itemID] = Almanac.Player:GetCollectibleNum(itemID)
+                    Log(string.format("Player now holds collectible %d now with a count of %d", itemID, Almanac.CurrentFrame["item_count"]))
                 end
             end
         end
@@ -207,7 +208,7 @@ function Almanac:UpdateValues()
                     for itemID = 1,525 do
                         if Almanac.Player:GetCollectibleNum(itemID) > 0 then
                             Almanac.CurrentFrame["held_items"][itemID] = Almanac.Player:GetCollectibleNum(itemID)
-                            Isaac.DebugString(string.format("Player now holds collectible with id of %d", itemID))
+                            Log(string.format("Player collectible %d now at count of %d", itemID, Almanac.CurrentFrame["item_count"]))
                         end
                     end
                 end
