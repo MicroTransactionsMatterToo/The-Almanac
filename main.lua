@@ -9,12 +9,14 @@
 ]]--
 
 -- Debugging --
+StartDebug()
 
 -- Mod Namespace --
 Almanac = {}
 
 -- Fields --
 Almanac.__initialised = false
+Almanac.__changed = false
 Almanac.PreviousFrame = {
     ["item_count"] = 0,
     ["held_items"] = {}
@@ -146,7 +148,7 @@ end
 local mod = RegisterMod("The Almanac", 1)
 
 -- Logging Subsystem --
-local log = Queue.New(10)
+local log = Queue.New(5)
 
 --- Handles UI side of logging
 -- @param _mod placeholder for callback
@@ -188,39 +190,63 @@ function Almanac:Initialise(_fromsave)
 end
 
 function Almanac:UpdateValues()
+    LogUI(0)
+    Almanac.__changed = false
     if Almanac.__initialised then
         Almanac.PreviousFrame = Almanac.CurrentFrame
         if Almanac.PreviousFrame["item_count"] ~= Almanac.Player:GetCollectibleCount() then
             Log("Player's Collectible count has changed, updating held_items and item_count")
+            Almanac.CurrentFrame = {}
             Almanac.CurrentFrame["item_count"] = Almanac.Player:GetCollectibleCount()
+            Almanac.CurrentFrame["held_items"] = {}
+            Almanac.__changed = true
             for itemID = 1,525 do
                 if Almanac.Player:GetCollectibleNum(itemID) > 0 then
                     Almanac.CurrentFrame["held_items"][itemID] = Almanac.Player:GetCollectibleNum(itemID)
-                    Log(string.format("Player now holds collectible %d now with a count of %d", itemID, Almanac.CurrentFrame["item_count"]))
+                    Log(string.format("Player now holds collectible %d now with a count of %d", itemID, Almanac.CurrentFrame["held_items"][itemID]))
                 end
             end
+            Almanac:ManageConflicts()
         end
-        if #Almanac.CurrentFrame > 0 then
-            for key, value in pairs(Almanac.CurrentFrame["held_items"]) do
-                if value ~= Almanac.Player:GetCollectibleNum(key) then
-                    Log("Player's number of a held item has changed, updating held_items and item_count")
-                    Almanac.CurrentFrame["item_count"] = Almanac.Player:GetCollectibleCount()
-                    for itemID = 1,525 do
-                        if Almanac.Player:GetCollectibleNum(itemID) > 0 then
-                            Almanac.CurrentFrame["held_items"][itemID] = Almanac.Player:GetCollectibleNum(itemID)
-                            Log(string.format("Player collectible %d now at count of %d", itemID, Almanac.CurrentFrame["item_count"]))
-                        end
-                    end
+    end
+end 
+
+function Almanac:ManageConflicts()
+    local conflicting_items = {}
+    local current_room = Game():GetRoom()
+    local room_center = current_room:GetCenterPos()
+    for key,value in pairs(Almanac.CurrentFrame["held_items"]) do
+        if Almanac.Conflicts[key] ~= nil then
+            table.insert(conflicting_items, key)
+            for key2, value2 in pairs(Almanac.Conflicts[key]) do
+                if Almanac.CurrentFrame["held_items"][value2] ~= nil then
+                    table.insert(conflicting_items, value2)
+                    Log("Conflicting items found, they will be dropped")
                 end
             end
         end
     end
-end 
+    if #conflicting_items > 1 then
+        for key, id in pairs(conflicting_items) do
+            Log(string.format("Dropped item %d", id))
+            Isaac.Spawn(EntityType.ENTITY_PICKUP, PickupVariant.PICKUP_COLLECTIBLE, id, current_room:FindFreePickupSpawnPosition(room_center, 0, true), Vector(0,0), nil)
+            Almanac.Player:RemoveCollectible(id)
+        end
+        Log("We have dropped items, update held_items and item_count")
+        Almanac.CurrentFrame = {}
+        Almanac.CurrentFrame["item_count"] = Almanac.Player:GetCollectibleCount()
+        for itemID = 1,525 do
+            if Almanac.Player:GetCollectibleNum(itemID) > 0 then
+                Almanac.CurrentFrame["held_items"][itemID] = Almanac.Player:GetCollectibleNum(itemID)
+                Log(string.format("Player now holds collectible %d now with a count of %d", itemID, Almanac.CurrentFrame["held_items"][itemID]))
+            end
+        end
+    end
+end
 
 
 
 
 mod:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, Almanac.Initialise)
-mod:AddCallback(ModCallbacks.MC_POST_RENDER, LogUI)
 mod:AddCallback(ModCallbacks.MC_POST_UPDATE, Almanac.UpdateValues)
 
